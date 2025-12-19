@@ -25,10 +25,10 @@ If you are new to this repository, start with `interp_scripts/config.py` and `in
 
 ### Activation capture and token geometry
 
-FLUX represents an image as a grid of patch tokens. For an image of resolution \(H \times W\) and patch size \(16\), the number of image tokens is
+FLUX represents an image as a grid of patch tokens. For an image of resolution $$H \times W$$ and patch size $$16$$, the number of image tokens is
 
 $$
-N = \frac{H}{16}\frac{W}{16}.
+N = \frac{H}{16} \times \frac{W}{16}
 $$
 
 For example, $$256 \times 256$$ yields $$16 \times 16 = 256$$ image tokens.
