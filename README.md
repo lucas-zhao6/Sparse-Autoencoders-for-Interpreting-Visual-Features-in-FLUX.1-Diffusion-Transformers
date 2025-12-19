@@ -6,7 +6,7 @@ Most of the work is implemented as a reproducible pipeline in `interp_scripts/`.
 
 ## Project summary
 
-We generate images from a prompt set, capture FLUX internal activations at a chosen transformer block and diffusion step, encode those activations using a trained SAE, and compute an image level feature score matrix \(S \in \mathbb{R}^{I \times F}\), where \(I\) is the number of generated images and \(F\) is the SAE hidden dimension (typically \(F=12288\)). We then
+We generate images from a prompt set, capture FLUX internal activations at a chosen transformer block and diffusion step, encode those activations using a trained SAE, and compute an image level feature score matrix $$\(S \in \mathbb{R}^{I \times F}\)$$, where $$\(I\)$$ is the number of generated images and $$\(F\)$$ is the SAE hidden dimension (typically $$\(F=12288\)$$). We then
 
 - identify alive features and their activation statistics
 - find top activating images per feature
@@ -27,9 +27,11 @@ If you are new to this repository, start with `interp_scripts/config.py` and `in
 
 FLUX represents an image as a grid of patch tokens. For an image of resolution \(H \times W\) and patch size \(16\), the number of image tokens is
 
+$$
 \[
 N = \frac{H}{16}\frac{W}{16}.
 \]
+$$
 
 For example, \(256 \times 256\) yields \(16 \times 16 = 256\) image tokens.
 
