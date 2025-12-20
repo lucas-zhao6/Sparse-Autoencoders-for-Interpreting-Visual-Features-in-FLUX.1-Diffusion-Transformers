@@ -26,7 +26,7 @@ This repository contains code and experiments for applying Sparse Autoencoders (
     ├── 06_make_contact_sheet.py   # Create contact sheet visualization
     ├── 07_feature_steering.py     # Basic feature steering
     ├── 08_visualize_decoder.py    # Visualize decoder directions
-    ├── 09_compare_layers.py       # Compare layer 5 vs layer 15
+    ├── 09_compare_layers.py       # Compare layer 5 vs layer 15 (not used)
     ├── 10_find_steering_demos.py  # Advanced: LPIPS-scored demo selection
     ├── 11_assemble_steering_grids.py  # Advanced: assemble steering grids
     └── [utility modules]          # sae_utils.py, flux_hooks.py, etc.
@@ -67,17 +67,17 @@ See `interp_scripts/README.md` for detailed documentation.
 
 ### Activation Capture and Token Geometry
 
-FLUX represents an image as a grid of patch tokens. For an image of resolution \(H \times W\) and patch size 16:
+FLUX represents an image as a grid of patch tokens. For an image of resolution $H \times W$ and patch size 16:
 
 $$N = \frac{H}{16} \times \frac{W}{16}$$
 
 For example, 256×256 yields 16×16 = 256 image tokens.
 
-During sampling, we hook a chosen FLUX transformer block (e.g., block 15) and capture the feedforward output tensor at a chosen diffusion step. The activations have dimension \(C=3072\).
+During sampling, we hook a chosen FLUX transformer block (e.g., block 15) and capture the feedforward output tensor at a chosen diffusion step. The activations have dimension $C=3072$.
 
 ### SAE Feature Encoding
 
-A trained SAE maps each token activation \(x_p \in \mathbb{R}^{3072}\) to a sparse feature vector \(z_p \in \mathbb{R}^{F}\), where \(F\) is typically 12288 (4× expansion).
+A trained SAE maps each token activation $x_p \in \mathbb{R}^{3072}$ to a sparse feature vector $z_p \in \mathbb{R}^{F}$, where $F$ is typically 12288 (4× expansion).
 
 This repo supports:
 - **L1 SAE**: Standard sparse autoencoder with L1 penalty on activations
@@ -89,7 +89,7 @@ To get a single score per image per feature, we max-pool across tokens:
 
 $$S_{i,f} = \max_p z_{i,p,f}$$
 
-This yields \(S \in \mathbb{R}^{I \times F}\), the main artifact used for ranking and selecting features.
+This yields $S \in \mathbb{R}^{I \times F}$, the main artifact used for ranking and selecting features.
 
 ### Feature Selection via CLIP Coherence
 
