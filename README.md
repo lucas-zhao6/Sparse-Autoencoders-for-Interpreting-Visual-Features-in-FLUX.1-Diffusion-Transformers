@@ -1,75 +1,148 @@
 # Sparse Autoencoders for Interpreting Visual Features in FLUX.1 Diffusion Transformers
 
-This repository contains code and experiments for applying Sparse Autoencoders (SAEs) to interpret intermediate representations inside a text to image diffusion transformer, FLUX.1 dev. The goal is to decompose internal activations into a sparse set of features that can be inspected, visualized, selected for interpretability, and optionally used for feature steering.
+This repository contains code and experiments for applying Sparse Autoencoders (SAEs) to interpret intermediate representations inside FLUX.1-dev, a text-to-image diffusion transformer. The goal is to decompose internal activations into a sparse set of features that can be inspected, visualized, selected for interpretability, and optionally used for feature steering.
 
-Most of the work is implemented as a reproducible pipeline in `interp_scripts/`.
+## Repository Structure
 
-## Project summary
+```
+.
+├── README.md                      # This file
+├── train_sae.py                   # SAE training script (L1 and TopK)
+├── sae_model.py                   # SAE model definitions
+├── activation_collection.py       # Collect FLUX activations for training
+├── prompt_sampling.py             # Prompt sampling utilities
+├── prompts.txt                    # Training prompts
+├── visualization_example.py       # Basic visualization example
+├── setup.py                       # Package setup
+└── interp_scripts/                # Main interpretability pipeline
+    ├── README.md                  # Detailed pipeline documentation
+    ├── config.py                  # Configuration (START HERE)
+    ├── run_pipeline.py            # Main orchestrator
+    ├── 01_collect_activations.py  # Generate images + collect S matrix
+    ├── 02_analyze_features.py     # Compute feature statistics
+    ├── 03_clip_embed.py           # Compute CLIP embeddings
+    ├── 04_select_features.py      # Select interpretable features
+    ├── 05_generate_overlays.py    # Generate heatmap overlays
+    ├── 06_make_contact_sheet.py   # Create contact sheet visualization
+    ├── 07_feature_steering.py     # Basic feature steering
+    ├── 08_visualize_decoder.py    # Visualize decoder directions
+    ├── 09_compare_layers.py       # Compare layer 5 vs layer 15
+    ├── 10_find_steering_demos.py  # Advanced: LPIPS-scored demo selection
+    ├── 11_assemble_steering_grids.py  # Advanced: assemble steering grids
+    └── [utility modules]          # sae_utils.py, flux_hooks.py, etc.
+```
 
-We generate images from a prompt set, capture FLUX internal activations at a chosen transformer block and diffusion step, encode those activations using a trained SAE, and compute an image level feature score matrix $$S \in \mathbb{R}^{I \times F}$$, where $$I$$ is the number of generated images and $$F$$ is the SAE hidden dimension (typically $$F=12288$$). We then
+## Getting Started
 
-- identify alive features and their activation statistics
-- find top activating images per feature
-- optionally compute CLIP embeddings to rank features by semantic coherence among their top examples
-- generate token-level activation heatmaps and overlay them on images to localize where features activate
-- produce contact sheets for report figures
-- run feature steering experiments
+### 1. Collect Activations (if training your own SAE)
 
-## Repository layout
+```bash
+# Collect activations from FLUX at layers 5 and 15
+python activation_collection.py
+```
 
-Most scripts are inside `interp_scripts/`. Earlier or prototype scripts may also exist at the repository root.
+This generates `flux_activations_layer5.npy` and `flux_activations_layer15.npy`.
 
-If you are new to this repository, start with `interp_scripts/config.py` and `interp_scripts/run_pipeline.py`.
+### 2. Train an SAE
 
-## Method overview
+```bash
+# Train L1 SAE
+python train_sae.py --layer layer15 --timestep 14 --l1_coeff 1e-3 --epochs 10
 
-### Activation capture and token geometry
+# Or train TopK SAE (recommended for guaranteed sparsity)
+python train_sae.py --layer layer15 --timestep 14 --topk --topk_k 1200 --epochs 10
+```
 
-FLUX represents an image as a grid of patch tokens. For an image of resolution $$H \times W$$ and patch size $$16$$, the number of image tokens is
+### 3. Run the Interpretability Pipeline
 
-$$
-N = \frac{H}{16} \times \frac{W}{16}
-$$
+```bash
+# First, update interp_scripts/config.py with your SAE checkpoint paths
+# Then run:
+python interp_scripts/run_pipeline.py
+```
 
-For example, $$256 \times 256$$ yields $$16 \times 16 = 256$$ image tokens.
+See `interp_scripts/README.md` for detailed documentation.
 
-During sampling, we hook a chosen FLUX transformer block (for example, block 15) and capture the feedforward output tensor for a chosen diffusion step index $$t$$. The captured activations are tokenized spatially and have a feature dimension $$C=3072$$ for the experiments in this repo.
+## Project Overview
 
-### SAE feature encoding
+### Activation Capture and Token Geometry
 
-A trained SAE maps each token activation $$x_p \in \mathbb{R}^{3072}$$ to an SAE feature vector $$z_p \in \mathbb{R}^{F}$$, usually with $$F=12288$$. This repo includes support for both L1 SAEs and TopK SAEs, depending on checkpoint configuration.
+FLUX represents an image as a grid of patch tokens. For an image of resolution \(H \times W\) and patch size 16:
 
-### Image level score matrix $$S$$
+$$N = \frac{H}{16} \times \frac{W}{16}$$
 
-To get a single score per image per feature, we max pool across image tokens:
+For example, 256×256 yields 16×16 = 256 image tokens.
 
-$$
-S_{i,f} = \max_{p} z_{i,t,p,f}.
-$$
+During sampling, we hook a chosen FLUX transformer block (e.g., block 15) and capture the feedforward output tensor at a chosen diffusion step. The activations have dimension \(C=3072\).
 
-Collecting across images yields $$S \in \mathbb{R}^{I \times F}$$. This is the main artifact used for ranking, selecting, and visualizing features.
+### SAE Feature Encoding
 
-### Alive feature statistics and top-k examples
+A trained SAE maps each token activation \(x_p \in \mathbb{R}^{3072}\) to a sparse feature vector \(z_p \in \mathbb{R}^{F}\), where \(F\) is typically 12288 (4× expansion).
 
-A feature is considered alive if it exceeds a threshold $$\varepsilon$$ on at least a minimum number of images. For each alive feature, we compute the top $$k$$ images by $$S_{i,f}$$. These are used for qualitative inspection and as the input to CLIP coherence selection.
+This repo supports:
+- **L1 SAE**: Standard sparse autoencoder with L1 penalty on activations
+- **TopK SAE**: Keeps only the top-k activations per input (guaranteed sparsity)
 
-### Feature selection via CLIP coherence
+### Image-Level Score Matrix S
 
-For each feature, take the top $$M$$ images by $$S_{i,f}$$, with a uniqueness constraint so multiple images from the same prompt are not selected. Compute CLIP embeddings for those images and rank features by semantic coherence, typically mean pairwise cosine similarity within that feature’s top set. Features with high coherence tend to be easier to interpret.
+To get a single score per image per feature, we max-pool across tokens:
 
-### Overlay visualizations
+$$S_{i,f} = \max_p z_{i,p,f}$$
 
-For selected features, compute token-level activation maps $$z_{i,t,p,f}$$ and reshape to the patch grid. We then render overlays on top of the original image to show where a feature activates spatially. The overlay pipeline can include patch-based aggregation to produce discrete activation maps aligned to the patch grid.
+This yields \(S \in \mathbb{R}^{I \times F}\), the main artifact used for ranking and selecting features.
 
-### Feature steering
+### Feature Selection via CLIP Coherence
 
-The repository includes an experimental steering script that modifies internal activations during sampling along a direction derived from the SAE for a given feature. Steering behavior depends strongly on which layer and steps are intervened on, the chosen direction, and the magnitude schedule. Steering code is included but is considered experimental.
+For each alive feature:
+1. Find the top-M images where the feature activates strongly
+2. Compute CLIP embeddings for those images
+3. Rank features by mean pairwise cosine similarity (coherence)
+
+Features with high coherence tend to represent interpretable concepts.
+
+### Overlay Visualizations
+
+For selected features, we compute token-level activation maps and create heatmap overlays showing where features activate spatially.
+
+### Feature Steering
+
+Experimental capability to modify activations during sampling:
+- **Basic steering** (step 7): Scale feature activations by different amounts
+- **Advanced steering** (steps 10-11): Find optimal demos using LPIPS responsiveness
+
+## Key Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `activation_collection.py` | Collect training activations from FLUX |
+| `train_sae.py` | Train SAE (L1 or TopK) on collected activations |
+| `interp_scripts/run_pipeline.py` | Run the full interpretability pipeline |
+| `interp_scripts/config.py` | Central configuration for all pipeline scripts |
 
 ## Requirements
 
-Recommended Python version is 3.10 or 3.11 for best compatibility with common diffusion libraries.
+Python 3.10 or 3.11 recommended.
 
-Install dependencies from requirements.txt
+```bash
+pip install torch diffusers transformers pillow numpy scipy matplotlib tqdm lpips
+```
 
+For full requirements, see individual script headers.
 
+## Example Outputs
 
+The pipeline produces:
+- **Contact sheets**: Grid visualizations of top features with activation overlays
+- **Heatmaps**: Per-image activation visualizations showing where features fire
+- **Steering grids**: Comparison images showing the effect of amplifying/suppressing features
+- **Decoder analysis**: Visualizations of learned feature directions
+
+## References
+
+This work builds on:
+- [Anthropic's SAE research](https://transformer-circuits.pub/2023/monosemantic-features/index.html)
+- [FLUX.1-dev by Black Forest Labs](https://github.com/black-forest-labs/flux)
+
+## License
+
+See LICENSE file for details.
