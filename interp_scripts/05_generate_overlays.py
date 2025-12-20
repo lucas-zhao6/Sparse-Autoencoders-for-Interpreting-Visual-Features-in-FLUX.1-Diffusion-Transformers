@@ -32,12 +32,11 @@ from heatmap_utils import token_map_to_blocky_heatmap, overlay_heatmap
 def setup_pipeline(model_id: str) -> FluxPipeline:
     """Load and configure FLUX pipeline."""
     pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
-    pipe = pipe.to("cuda")
     
-    if hasattr(pipe, "enable_sequential_cpu_offload"):
-        pipe.enable_sequential_cpu_offload()
-    elif hasattr(pipe, "enable_model_cpu_offload"):
+    if hasattr(pipe, "enable_model_cpu_offload"):
         pipe.enable_model_cpu_offload()
+    elif hasattr(pipe, "enable_sequential_cpu_offload"):
+        pipe.enable_sequential_cpu_offload()
     
     if hasattr(pipe, "enable_attention_slicing"):
         pipe.enable_attention_slicing()

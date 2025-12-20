@@ -11,7 +11,7 @@ class Config:
     images_subdir: str = "images"
     overlays_subdir: str = "overlays"
     
-    # === SAE paths (UPDATE THESE to match your actual directories) ===
+    # === SAE paths ===
     layer5_sae_path: str = "sae_training_layer5_t14_topk1200_x4_20251217_231756/sae_best.pt"
     layer15_sae_path: str = "sae_training_layer15_t14_topk1200_x4_20251218_020502/sae_best.pt"
     
@@ -48,7 +48,7 @@ class Config:
         return self.height // self.patch_size  # 16 for 256x256
     
     # === Data collection config ===
-    prompts_path: str = "test_prompts.txt"
+    prompts_path: str = "interp_scripts/test_prompts.txt"
     reps_per_prompt: int = 2
     base_seed: int = 42
     
